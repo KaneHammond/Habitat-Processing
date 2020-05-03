@@ -64,6 +64,8 @@ for Folder in ShapeFolders:
 
 PR = []
 
+PreviousScene = []
+
 # for Shape in ShapeFiles:
 ProgBarLimit = len(ShapeFiles)
 print '\nSelecting Scenes...\n'
@@ -102,16 +104,19 @@ for i in tqdm.tqdm(range(ProgBarLimit)):
 
 	# Iterate through each Polygon of paths and rows intersecting the area
 	for i, row in wrs_intersection.iterrows():
-	    # Convert row to polygon, geometry attribut contains all
-	    # coordinates
-	    poly = Polygon(row.geometry)
-	    # Append max and min to list
-	    MxMn.append(poly.bounds)
+		# Convert row to polygon, geometry attribut contains all
+		# coordinates
+		poly = Polygon(row.geometry)
+		# Append max and min to list
+		MxMn.append(poly.bounds)
+
 
 	# identify max and min xy for the target shapefile. This will be used to determine if 
 	# multiple images are required.
 
 	SelectionMXMN = file1.bounds
+
+	# sys.exit()
 
 	# Identify which scenes are needed. If multiple are
 	# selected, filter through to check which is best fit.

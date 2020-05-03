@@ -31,16 +31,16 @@ SF_Dir = 'Shapefile/'
 
 
 
-# IDs = []
-# with fiona.open(SF_Dir+'LakeSeg.shp') as File:
-# 	for feature in File:
-# 		IDs.append(feature['id'])
+IDs = []
+with fiona.open(SF_Dir+'LakeParsed.shp') as File:
+	for feature in File:
+		IDs.append(feature['id'])
 
 # For DEM based analysis
-IDs = []
-with fiona.open(SF_Dir+'DEM_Grid_Cut.shp') as File:
-	for feature in File:
-		IDs.append(feature['properties']['NAME'])
+# IDs = []
+# with fiona.open(SF_Dir+'DEM_Grid_Cut.shp') as File:
+# 	for feature in File:
+# 		IDs.append(feature['properties']['NAME'])
 
 ################################## QUERY
 
@@ -51,7 +51,7 @@ for aItem in IDs:
 	print '%i) %s' % (c, aItem)
 	c=c+1
 
-query = raw_input('\nSelect Segmemt/s for download (Separate by comma): ')
+query = raw_input('\nSelect Segmemt/s for download (Separate by comma) or A for all: ')
 
 Selection_Index = query.split(',')
 
@@ -59,27 +59,37 @@ ID_Selection = []
 for aItem in Selection_Index:
 	try:
 		aItem = int(aItem)
+		# Index for lists start at 0, started at 1 in selection index
+		# must subtract by 1 to equal true index of selection.
+		I_Val = aItem-1
+		ID_Selection.append(IDs[I_Val])
 	except:
-		print 'Fail'
-		sys.exit()
-	# Index for lists start at 0, started at 1 in selection index
-	# must subtract by 1 to equal true index of selection.
-	I_Val = aItem-1
-	ID_Selection.append(IDs[I_Val])
+		try:
+			aItem = str(aItem)
+			if aItem == 'A':
+				print '\nAll Selected...'
+		except:
+			print 'Fail'
+			sys.exit()
+
+if aItem=='A':
+	for aVar in IDs:
+		ID_Selection.append(aVar)
 
 ################################ QUERY END
 
 # Full Run
 
 # Will write individual shapefiles for each segment
-with fiona.open(SF_Dir+'DEM_Grid_Cut.shp') as File:
+with fiona.open(SF_Dir+'LakeParsed.shp') as File:
 	# with fiona.open(SF_Dir+'ParsedLake.shp') as File:
 		# schema = File.schema
 	meta = File.meta
 	# print meta
 	# sys.exit()
 	for feature in File:
-		ID = feature['properties']['NAME']
+		# ID = feature['properties']['NAME']
+		ID = feature['id']
 		for aItem in ID_Selection:
 			aItem = int(aItem)
 			if aItem==int(ID):

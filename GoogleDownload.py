@@ -86,27 +86,31 @@ def filteredImageInCHIRPSToMapId(dateFrom, dateTo, Path, Row, Y):
         Split = Name.split('/')
         BaseFileName = Split[-1]
 
-        out = batch.Export.image(FirstIm, description=BaseFileName+'_'+Band1)
-            # region=ee.Feature(FirstIm.first()).geometry().bounds().getInfo()['coordinates'])
-        ## Process the image
-        process = batch.Task.start(out)
-        process
+        # Suppress put section to write image properties without requesting 
+        # images
 
-        out = batch.Export.image(SecondIm, description=BaseFileName+'_'+Band2)
-            # region=ee.Feature(FirstIm.first()).geometry().bounds().getInfo()['coordinates'])
-        ## Process the image
-        process = batch.Task.start(out)
-        process
+        # out = batch.Export.image(FirstIm, description=BaseFileName+'_'+Band1)
+        #     # region=ee.Feature(FirstIm.first()).geometry().bounds().getInfo()['coordinates'])
+        # ## Process the image
+        # process = batch.Task.start(out)
+        # process
 
-        out = batch.Export.image(ThirdIm, description=BaseFileName+'_'+Band3)
-            # region=ee.Feature(FirstIm.first()).geometry().bounds().getInfo()['coordinates'])
-        ## Process the image
-        process = batch.Task.start(out)
-        process
+        # out = batch.Export.image(SecondIm, description=BaseFileName+'_'+Band2)
+        #     # region=ee.Feature(FirstIm.first()).geometry().bounds().getInfo()['coordinates'])
+        # ## Process the image
+        # process = batch.Task.start(out)
+        # process
+
+        # out = batch.Export.image(ThirdIm, description=BaseFileName+'_'+Band3)
+        #     # region=ee.Feature(FirstIm.first()).geometry().bounds().getInfo()['coordinates'])
+        # ## Process the image
+        # process = batch.Task.start(out)
+        # process
 
         # Convert dictionary object to list
         list_key_value = [ [k,v] for k, v in ImageProperties.items() ]
 
+        # Write image band properties file
         with open(Image_Meta_Dir+BaseFileName+'_Properties.txt', 'w') as Doc:
             for Object in list_key_value:
                 if Object!= list_key_value[-1]:
@@ -157,7 +161,6 @@ ProgBarLimit2 = len(SL)
 ee.Initialize()
 
 ErrorLog = []
-
 print '\nRequesting Image Bands...\n'
 for r in tqdm.tqdm(range(ProgBarLimit0)):
     # Select the correct PR

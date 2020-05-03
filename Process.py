@@ -141,30 +141,53 @@ for r in tqdm.tqdm(range(ProgBarLimit)):
 		CloudCover = glob(Path+'*/*%s.TIF' % FileEnd)
 		CloudCover = CloudCover[0]
 
-		# Open the shapefile and determine which grid the section
-		# belongs to. Then use the full grid to clip the image data.
-		# This will be the new extent. For this purpose, we are only
-		# looking at the phase. Expansion will require more specific
-		# filters. Currently we only have the JamesRiver data.
-		# Split between 2 phases, 4 and 5.
-		with fiona.open(PLD+SHPflFolder+'Seg'+str(SegCount)+'Shp'+'.shp', "r") as shapefile:
-			phase = [feature["properties"]["Phase"] for feature in shapefile]
+		##################### DEM GRID BASED
+
+		# # Open the shapefile and determine which grid the section
+		# # belongs to. Then use the full grid to clip the image data.
+		# # This will be the new extent. For this purpose, we are only
+		# # looking at the phase. Expansion will require more specific
+		# # filters. Currently we only have the JamesRiver data.
+		# # Split between 2 phases, 4 and 5.
+		# with fiona.open(PLD+SHPflFolder+'Seg'+str(SegCount)+'Shp'+'.shp', "r") as shapefile:
+		# 	phase = [feature["properties"]["Phase"] for feature in shapefile]
 				
-		shapefile.close()
-		# Filter through the 2 phases available for the lake location
-		if int(phase[0])==4:
-			GridFile = 'IndexLiDARJamesRiverPh4QL3.shp'
+		# shapefile.close()
+		# # Filter through the 2 phases available for the lake location
+		# if int(phase[0])==4:
+		# 	GridFile = 'IndexLiDARJamesRiverPh4QL3.shp'
 
-		if int(phase[0])==5:
-			GridFile = 'IndexLiDARJamesRiverPh5QL3.shp'
+		# if int(phase[0])==5:
+		# 	GridFile = 'IndexLiDARJamesRiverPh5QL3.shp'
 
-		# Open the appropriate gridded file to pull the full
-		# polygon. This will be the correct bounds for the
-		# specific DEM file.
+		# # Open the appropriate gridded file to pull the full
+		# # polygon. This will be the correct bounds for the
+		# # specific DEM file.
 
-		with fiona.open(SF_Dir+GridFile, "r") as shapefile:
+		# with fiona.open(SF_Dir+GridFile, "r") as shapefile:
+		# 	for feature in shapefile:
+		# 		if str(feature['properties']['TileNum'])==SegCount:
+		# 			source_schema = shapefile.schema
+		# 			crs = shapefile.crs
+		# 			source_properties = shapefile['properties']
+		# 			# Identify the location of the bound file for the DEM segment
+		# 			BoundFile = PLD+'Segment'+SegCount+'/'+'Seg'+SegCount+'Shp/'+SegCount+'Bounds.shp'
+		# 			with fiona.open(PLD+'Segment'+SegCount+'/'+'Seg'+SegCount+'Shp/'+SegCount+'Bounds.shp', 'w', 
+		# 				driver = shapefile.driver, schema = source_schema, crs = crs) as NewFile:
+		# 				# NewFile['geometry'] = feature['geometry']
+		# 				# NewFile['properties'] = source_properties
+		# 				# for f in feature:
+		# 				NewFile.write(feature)
+		# 				NewFile.close()
+		# shapefile.close()
+
+		####################### END DEM GRID BASED
+
+		# Write bound file based on parsed lake data
+
+		with fiona.open(SF_Dir+'LakeParsed.shp', "r") as shapefile:
 			for feature in shapefile:
-				if str(feature['properties']['TileNum'])==SegCount:
+				if str(feature['id'])==SegCount:
 					source_schema = shapefile.schema
 					crs = shapefile.crs
 					source_properties = shapefile['properties']
@@ -178,6 +201,8 @@ for r in tqdm.tqdm(range(ProgBarLimit)):
 						NewFile.write(feature)
 						NewFile.close()
 		shapefile.close()
+
+
 
 		# Use a temp open file to write an extent shape 
 		# this will be used to clip all tif images and must be converted
@@ -389,6 +414,8 @@ for r in tqdm.tqdm(range(ProgBarLimit)):
 
 		ImagePropertiesRaw = []
 		ImageFile = str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index]+'_Properties.txt')
+		# print ImageMetaFiles+ImageFile
+		# sys.exit()
 		with open(ImageMetaFiles+ImageFile) as Doc:
 			for Item in Doc:
 				ImagePropertiesRaw.append(Item)
@@ -675,6 +702,9 @@ output.close()
 
 # Open the coverage quality meta file. This will contain information
 # explaining the intereference within a given segment.
+
+ErrorLog = []
+
 MetaCovRaw = []
 
 with open(Meta_Dir+'SegmentImageInfo.csv', 'r') as File:
@@ -705,11 +735,13 @@ ProgBarLimit = len(ID)
 
 print '\nNDVI Segment Analysis...\n'
 for r in tqdm.tqdm(range(ProgBarLimit)):
-	# r = 1
-	# # print aSeg[r]
+	# if r == 4:
+	# r = 4
 	aSeg = PRs[r]
+	# print aSeg
 	# aSeg = PRs[6]
 	SegCount = aSeg[0]
+	# print SegCount
 	SHP_Extent_File = 'Segment%s/Seg%sShp/%sExtent.shp' % (SegCount, SegCount, SegCount)
 	# Write output paths for cloud assessment
 	# General output for cloud data
@@ -729,354 +761,369 @@ for r in tqdm.tqdm(range(ProgBarLimit)):
 	NDVIPNG = 'ParsedLakeData/Segment%s/Seg%sNDVI/PNG_Files/' % (SegCount, SegCount)
 	NDVITIF = 'ParsedLakeData/Segment%s/Seg%sNDVI/TIF_Files/' % (SegCount, SegCount)
 
-	# Calculate Segement NDVI
-	CPR = aSeg[1]+aSeg[2]
+	try:
 
-	# Identify folder paths within image output
-	LANDSAT_PATH = glob('TIF_Code_Images*/*')
-	# List of folders containing files
-	Paths = []
-	# Files within each folder
-	Files = []
-	# Define folder paths for NDVI out for multiple dates
-	NDVI_Out_Paths = []
-	# Define sat codes
-	SatCodes = []
-	# Define dates
-	Dates = []
-	# PR codes
-	PRCodes = []
-	for aItem in LANDSAT_PATH:
-		# Select the path and row for the image collection to 
-		# compare to the CorrectPR object
-		S = aItem.split('\\')
-		SCode = str(S[-1])
-		SCode = SCode.split('_')
-		# Satellite
-		SAT = SCode[0]
-		# Date
-		Date = SCode[-1]
-		# Path and Row
-		PR = SCode[1]
-		# Compare the PR code to the CorrectPR
-		# If the item matches, then the image file
-		# for that PR will be selected for the NDVI analysis
-		if PR==CPR:
-			Paths.append(aItem)
-			L = listdir(aItem)
-			Files.append(L)
-			SatCodes.append(SAT)
-			Dates.append(Date)
-			PRCodes.append(PR)
+		# Calculate Segement NDVI
+		CPR = aSeg[1]+aSeg[2]
 
-	Index = 0
-	for Path in Paths:
-		# Determine which bands to use based upon satellite
-		if SatCodes[Index] == 'LC08':
-			Band1 = 'B5' # NIR
-			Band2 = 'B4' # Red
-		if SatCodes[Index] == 'LT05':
-			Band1 = 'B4' # NIR
-			Band2 = 'B3' # Red
+		# Identify folder paths within image output
+		LANDSAT_PATH = glob('TIF_Code_Images*/*')
+		# List of folders containing files
+		Paths = []
+		# Files within each folder
+		Files = []
+		# Define folder paths for NDVI out for multiple dates
+		NDVI_Out_Paths = []
+		# Define sat codes
+		SatCodes = []
+		# Define dates
+		Dates = []
+		# PR codes
+		PRCodes = []
+		for aItem in LANDSAT_PATH:
+			# Select the path and row for the image collection to 
+			# compare to the CorrectPR object
+			S = aItem.split('\\')
+			SCode = str(S[-1])
+			SCode = SCode.split('_')
+			# Satellite
+			SAT = SCode[0]
+			# Date
+			Date = SCode[-1]
+			# Path and Row
+			PR = SCode[1]
+			# Compare the PR code to the CorrectPR
+			# If the item matches, then the image file
+			# for that PR will be selected for the NDVI analysis
+			if PR==CPR:
+				Paths.append(aItem)
+				L = listdir(aItem)
+				Files.append(L)
+				SatCodes.append(SAT)
+				Dates.append(Date)
+				PRCodes.append(PR)
 
-		# ****FILTER BY COVERAGE****
-		# Only process records with favorable coverage conditions.
-		# Based upon cloud cover, currently set at 10%, see below.
-		SkipRecord = False
-		# Parse the path to extract date from image
-		Mod1 = Path.split('\\')
-		Mod2 = Mod1[-1].split('_')
-		DateCodeCheck = Mod2[-1]
-		# MetaCov Format: [Segment, Clear land, Water, Interference, Landsat Code, Date Code]
-		for aRow in MetaCov:
-			if aRow[0]==SegCount:
-				# MetaCov aRow[-1] was converted to int to drop the
-				# new line text (\n). Both of these variables below are
-				# missing leading zeros.
-				if str(aRow[-1])==str(DateCodeCheck):
-					if float(aRow[3])>10.0:
-						SkipRecord = True
-						Index = Index+1
-		# WORK WORK
-		if SkipRecord==False:
-			# Select the B3 and B4 or B4 and B5 bands
-			# Define the imagery for the path and row of the polygon
-			for aItem in glob(Path+'*/*%s.TIF' % Band1):
-				OriginalData = aItem
-				B1 = aItem
-			for aItem in glob(Path+'*/*%s.TIF' % Band2):
-				B2 = aItem
-				Temp = aItem
+		Index = 0
+		for Path in Paths:
+			# Determine which bands to use based upon satellite
+			if SatCodes[Index] == 'LC08':
+				Band1 = 'B5' # NIR
+				Band2 = 'B4' # Red
+			if SatCodes[Index] == 'LT05':
+				Band1 = 'B4' # NIR
+				Band2 = 'B3' # Red
 
-			import rasterio.mask
-			with fiona.open(PLD+SHP_Extent_File, "r") as shapefile:
-				shapes = [feature["geometry"] for feature in shapefile]
+			# ****FILTER BY COVERAGE****
+			# Only process records with favorable coverage conditions.
+			# Based upon cloud cover, currently set at 10%, see below.
+			SkipRecord = False
+			# Parse the path to extract date from image
+			Mod1 = Path.split('\\')
+			Mod2 = Mod1[-1].split('_')
+			DateCodeCheck = Mod2[-1]
+			# MetaCov Format: [Segment, Clear land, Water, Interference, Landsat Code, Date Code]
+			for aRow in MetaCov:
+				if aRow[0]==SegCount:
+					# MetaCov aRow[-1] was converted to int to drop the
+					# new line text (\n). Both of these variables below are
+					# missing leading zeros.
+					if str(aRow[-1])==str(DateCodeCheck):
+						if float(aRow[3])>10.0:
+							SkipRecord = True
+							Index = Index+1
+			# WORK WORK
+			if SkipRecord==False:
+				# Select the B3 and B4 or B4 and B5 bands
+				# Define the imagery for the path and row of the polygon
+				for aItem in glob(Path+'*/*%s.TIF' % Band1):
+					OriginalData = aItem
+					B1 = aItem
+				for aItem in glob(Path+'*/*%s.TIF' % Band2):
+					B2 = aItem
+					Temp = aItem
 
-			with rasterio.open(B1) as src:
-				out_image_B1, out_transform1 = rasterio.mask.mask(src, shapes, crop=True)
-				out_meta_B1 = src.meta
-				# Define the parameters of the tif clip
-				out_meta_B1.update({"driver": "GTiff",
-		                 "height": out_image_B1.shape[1],
-		                 "width": out_image_B1.shape[2],
-		                 "transform": out_transform1})
-			# Write a clipped B1 tif file
-			with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band1+'_'+'Clip.tif', 'w', **out_meta_B1) as dst:
-			    dst.write(out_image_B1)
-				# print out_meta_B4
-				# print out_transform4
-			dst.close()
+				import rasterio.mask
+				with fiona.open(PLD+SHP_Extent_File, "r") as shapefile:
+					shapes = [feature["geometry"] for feature in shapefile]
 
-			with rasterio.open(B2) as src:
-				out_image_B2, out_transform = rasterio.mask.mask(src, shapes, crop=True)
-				out_meta_B2 = src.meta
-				# Define the parameters of the tif clip
-				out_meta_B2.update({"driver": "GTiff",
-		                 "height": out_image_B2.shape[1],
-		                 "width": out_image_B2.shape[2],
-		                 "transform": out_transform})
-			# Write a clipped b4 tif file
-			with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band2+'_'+'Clip.tif', 'w', **out_meta_B2) as dst:
-			    dst.write(out_image_B2)
-				# show(out_image_B3)
-			dst.close()
-
-			# Open the shapefile containing no data shapes
-			FolderLoc = 'ParsedLakeData/Segment%s/Seg%sCLOUD/SHP_Files/' % (SegCount, SegCount)
-			File = str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'INT.shp'
-			
-			# Open the interference shapefile for clip
-			with fiona.open(FolderLoc+File, "r") as shapefile:
-				shapes = [feature["geometry"] for feature in shapefile]
-			shapefile.close()
-
-			# Open the clipped bands for the NDVI calculation
-			# We write the new tif files and open them for the calculation to aid in 
-			# writing a new tif file for the ndvi calculation. Error was lifted when 
-			# trying to save the ndvi tif image from the clips of band imagery.
-			# print str((SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band1+'_'+'Clip.tif')
-			with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band1+'_'+'Clip.tif', 'r') as src:
-				out_image_B1, out_transform1 = rasterio.mask.mask(src, shapes, crop=True)
-				out_meta_B1 = src.meta
-
-			with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band2+'_'+'Clip.tif', 'r') as src2:
-				out_image_B2, out_transform2 = rasterio.mask.mask(src2, shapes, crop=True)
-				out_meta_B2 = src.meta
-
-			# Calculate NDVI
-			# Allow division by zero
-			np.seterr(divide='ignore', invalid='ignore')
-			ndvi_upper = (out_image_B1.astype(float) - out_image_B2.astype(float))
-			ndvi_lower = (out_image_B1.astype(float) + out_image_B2.astype(float))
-			ndvi = (ndvi_upper / ndvi_lower)
-
-			# Update the meta data the new 
-			out_meta_B1.update({"driver": "GTiff",
+				with rasterio.open(B1) as src:
+					out_image_B1, out_transform1 = rasterio.mask.mask(src, shapes, crop=True)
+					out_meta_B1 = src.meta
+					# Define the parameters of the tif clip
+					out_meta_B1.update({"driver": "GTiff",
 			                 "height": out_image_B1.shape[1],
 			                 "width": out_image_B1.shape[2],
-			                 "transform": out_transform1,
-			                 # Define dytpe as float to accomodate for the dec in calc
-			                 "dtype": "float64"})
+			                 "transform": out_transform1})
+				# Write a clipped B1 tif file
+				with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band1+'_'+'Clip.tif', 'w', **out_meta_B1) as dst:
+				    dst.write(out_image_B1)
+					# print out_meta_B4
+					# print out_transform4
+				dst.close()
 
-			# WORK HERE DEFINE VMIN VMAX
+				with rasterio.open(B2) as src:
+					out_image_B2, out_transform = rasterio.mask.mask(src, shapes, crop=True)
+					out_meta_B2 = src.meta
+					# Define the parameters of the tif clip
+					out_meta_B2.update({"driver": "GTiff",
+			                 "height": out_image_B2.shape[1],
+			                 "width": out_image_B2.shape[2],
+			                 "transform": out_transform})
+				# Write a clipped b4 tif file
+				with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band2+'_'+'Clip.tif', 'w', **out_meta_B2) as dst:
+				    dst.write(out_image_B2)
+					# show(out_image_B3)
+				dst.close()
 
-			# Write the calculated NDVI data to a tif image
-			with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+'ndvi.tif', 'w', **out_meta_B1) as dst:
-			    dst.write(ndvi)
+				# Open the shapefile containing no data shapes
+				FolderLoc = 'ParsedLakeData/Segment%s/Seg%sCLOUD/SHP_Files/' % (SegCount, SegCount)
+				File = str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'INT.shp'
+				
+				# Open the interference shapefile for clip
+				with fiona.open(FolderLoc+File, "r") as shapefile:
+					shapes = [feature["geometry"] for feature in shapefile]
+				shapefile.close()
 
-			# Close out of files
-			dst.close()
-			src.close()
-			src2.close()
-			# Delete the band clips previously written
-			os.remove(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+str(SegCount)+'_'+Band1+'_'+'Clip.tif')
-			os.remove(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+str(SegCount)+'_'+Band2+'_'+'Clip.tif')
 
-			#######################################################################
-			#							NDVI PNG OUTPUT
+				# Open the clipped bands for the NDVI calculation
+				# We write the new tif files and open them for the calculation to aid in 
+				# writing a new tif file for the ndvi calculation. Error was lifted when 
+				# trying to save the ndvi tif image from the clips of band imagery.
+				# print str((SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band1+'_'+'Clip.tif')
+				with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band1+'_'+'Clip.tif', 'r') as src:
+					out_image_B1, out_transform1 = rasterio.mask.mask(src, shapes, crop=True)
+					out_meta_B1 = src.meta
 
-			# Histogram bin data
-			# Define output text information
-			bins = [-1, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.8, 0.9, 1]
+				with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+Band2+'_'+'Clip.tif', 'r') as src2:
+					out_image_B2, out_transform2 = rasterio.mask.mask(src2, shapes, crop=True)
+					out_meta_B2 = src.meta
 
-			# Get the max and min variables in the data, this will be used for the 
-			# the bins.
-			MinVal = np.nanmin(ndvi[0])
-			MaxVal = np.nanmax(ndvi[0])
-			BinSelect = []
+				# Calculate NDVI
+				# Allow division by zero
+				np.seterr(divide='ignore', invalid='ignore')
+				ndvi_upper = (out_image_B1.astype(float) - out_image_B2.astype(float))
+				ndvi_lower = (out_image_B1.astype(float) + out_image_B2.astype(float))
+				ndvi = (ndvi_upper / ndvi_lower)
 
-			for aValue in bins:
-				if aValue>MinVal:
-					if aValue<MaxVal:
-						BinSelect.append(aValue)
+				# Update the meta data the new 
+				out_meta_B1.update({"driver": "GTiff",
+				                 "height": out_image_B1.shape[1],
+				                 "width": out_image_B1.shape[2],
+				                 "transform": out_transform1,
+				                 # Define dytpe as float to accomodate for the dec in calc
+				                 "dtype": "float64"})
 
-			# Figure Text section on ax2
+				# WORK HERE DEFINE VMIN VMAX
 
-			# Pull meta data for the base image file 
+				# Write the calculated NDVI data to a tif image
+				with rasterio.open(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'_'+'ndvi.tif', 'w', **out_meta_B1) as dst:
+				    dst.write(ndvi)
 
-			ImagePropertiesRaw = []
-			ImageFile = str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index]+'_Properties.txt')
-			with open(ImageMetaFiles+ImageFile) as Doc:
-				for Item in Doc:
-					ImagePropertiesRaw.append(Item)
-			Doc.close()
-			# Used * when writing the file to allow for splitting each item later
-			ImagePropertiesRaw = ImagePropertiesRaw[0].split('*')
-			# Restructure to list of lists and clean up string data
-			# Data information:
-			#	system:index - Will return sat_pr_date
-			#	EARTH_SUN_DISTANCE - Will return distance to sun
-			#	system:time_start - Will return time
-			#	system:footprint - Will return type of data and the coordinates
-			#	LEVEL1_PRODUCTION_DATE - Will return date of production
-			#	SATELLITE - Will return sat 
-			#	GEOMETRIC_RMSE_MODEL - Will return the RMSE model
-			#	CLOUD_COVER = Give cloud cover for entire image
-			#	GEOMETRIC_RMSE_MODEL_X - RMSE model for x
-			#	GEOMETRIC_RMSE_MODEL_Y - RMSE model for y
-			#	IMAGE_QUALITY_OLI - Image quality value
-			#	ESPA_VERSION - 
-			#	WRS_ROW - 
-			# 	WRS_PATH - 
-			#	system:assetsize - size of image
-			#	LANDSAT_ID - Complete ID
-			#	SENSING_TIME - date and time of image
-			#	SR_APP_VERSION - Surface reflectance model
-			Selection = ['LANDSAT_ID','CLOUD_COVER','SENSING_TIME','SR_APP_VERSION']
-			# List for the properties to be oreded in
-			ImageProperties = []
-			# List to store the selected items before ordering
-			Temp = []
-			for aItem in ImagePropertiesRaw:
-				aItem = aItem.replace(']', '')
-				aItem = aItem.replace('[', '')
-				aItem = aItem.replace("u'", '')
-				aItem = aItem.replace("'", '')
-				aItem = aItem.replace(" ", '')
-				aItem = aItem.split(',')
-				for selected in Selection:
-					if selected==aItem[0]:
-						Temp.append(aItem)
-			# Order the selection by the order in the Selection input list
-			for aItem in Selection:
-				for selected in Temp:
-					if selected[0]==aItem:
-						ImageProperties.append(selected)
+				# Close out of files
+				dst.close()
+				src.close()
+				src2.close()
+				# Delete the band clips previously written
+				os.remove(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+str(SegCount)+'_'+Band1+'_'+'Clip.tif')
+				os.remove(NDVITIF+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+str(SegCount)+'_'+Band2+'_'+'Clip.tif')
 
-			# FULL Image properties statements: *****************
-			Sat = ImageProperties[0][0]+':'+' '+ImageProperties[0][-1]
-			Cloud = ImageProperties[1][0]+':'+' '+ImageProperties[1][-1]+'%'
-			Time = ImageProperties[2][0]+':'+' '+ImageProperties[2][-1]
-			SRver = ImageProperties[3][0]+':'+' '+ImageProperties[3][-1]
-			Finput = 'Base Image Properties:\n'+Sat+'\n'+Cloud+'\n'+Time+'\n'+SRver
+				#######################################################################
+				#							NDVI PNG OUTPUT
 
-			# Pull data for the clipped image interference coverage
-			# The image meta file is written for each cloud coverage section
-			# and contains the image name and estimated interference. At this piont,
-			# the interference will have been clipped.
-			# The data format for the initial input for the meta file is below:
-			# InsertItem = SatCode+'^'+TotalInt+'^'+str(TotalArea)+'^'+str(WaterArea)+'^'+str(LandArea)+'*'
-			
-			ImagePropertiesRaw = []
-			ImageFile = 'Image_Meta.txt'
-			CloudGEN = 'ParsedLakeData/Segment%s/Seg%sCLOUD/' % (SegCount, SegCount)
-			with open(CloudGEN+ImageFile) as Doc:
-				for Item in Doc:
-					ImagePropertiesRaw.append(Item)
-			Doc.close()
+				# Histogram bin data
+				# Define output text information
+				bins = [-1, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.8, 0.9, 1]
 
-			# Clean up the data, split by the asterisk *
-			SplitData = ImagePropertiesRaw[0].split('*')
-			# Keep all the data but the first and final blank spot left over from split
-			SplitData = SplitData[0:-1]
-			# Split each element in each sub list to write list of list
-			ImageProperties = []
-			for aItem in SplitData:
-				aItem = aItem.split('^')
-				ImageProperties.append(aItem)
-			# New format: [Sat_PR_Date_Seg, Total Int, Total area, Water Area, Land Area]
-			for aList in ImageProperties:
-				# Split the data by _ to split the sat code and check the date
-				Temp = aList[0].split('_')
-				# TD is the temporary date, if it matches the one the loop
-				# is on, it will select the clip meta data for this set
-				TD = Temp[-1]
-				if TD==Dates[Index]:
-					# Identify it as an item
-					SelectedData = aList
+				# Get the max and min variables in the data, this will be used for the 
+				# the bins.
+				MinVal = np.nanmin(ndvi[0])
+				MaxVal = np.nanmax(ndvi[0])
+				BinSelect = []
 
-			# Calculate area left after clip, we only kept water and land
-			TotalArea = int(SelectedData[-1])+int(SelectedData[-2])
+				for aValue in bins:
+					if aValue>MinVal:
+						if aValue<MaxVal:
+							BinSelect.append(aValue)
 
-			# CLIP NDVI Image properties statements: *****************
-			# Build our second section of the text input for ax2
-			SEG_INT = 'CLIP_DATA_REMOVED: %s%%' % SelectedData[1]
-			W_Area = 'FMASK_WATER_EST: %s^2m' % SelectedData[3]
-			C_Area = 'FMASK_CLEAR/LAND_EST: %s^2m' % SelectedData[4]
-			InitialArea = 'INITIAL_DATA_AREA: %s^2m' % SelectedData[2]
-			RemainA = 'REMAINING_DATA_AREA: %i^2m' % TotalArea
+				# Figure Text section on ax2
 
-			Cinput = 'NDVI Image Properties:\n'+SEG_INT+'\n'+W_Area+'\n'+C_Area+'\n'+InitialArea+'\n'+RemainA
+				# Pull meta data for the base image file 
 
-			# Plot the data over a subplot2grid setup
-			gridsize = (5,2)
-			fig = plt.figure(figsize=(12,9))
-			ax1 = plt.subplot2grid(gridsize, (0, 0), colspan= 2, rowspan= 3)
-			ax2 = plt.subplot2grid(gridsize, (3, 0), colspan = 1, rowspan=2)
-			ax3 = plt.subplot2grid(gridsize, (3, 1), colspan = 1, rowspan = 2)
+				ImagePropertiesRaw = []
+				ImageFile = str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index]+'_Properties.txt')
+				with open(ImageMetaFiles+ImageFile) as Doc:
+					for Item in Doc:
+						ImagePropertiesRaw.append(Item)
+				Doc.close()
+				# Used * when writing the file to allow for splitting each item later
+				ImagePropertiesRaw = ImagePropertiesRaw[0].split('*')
+				# Restructure to list of lists and clean up string data
+				# Data information:
+				#	system:index - Will return sat_pr_date
+				#	EARTH_SUN_DISTANCE - Will return distance to sun
+				#	system:time_start - Will return time
+				#	system:footprint - Will return type of data and the coordinates
+				#	LEVEL1_PRODUCTION_DATE - Will return date of production
+				#	SATELLITE - Will return sat 
+				#	GEOMETRIC_RMSE_MODEL - Will return the RMSE model
+				#	CLOUD_COVER = Give cloud cover for entire image
+				#	GEOMETRIC_RMSE_MODEL_X - RMSE model for x
+				#	GEOMETRIC_RMSE_MODEL_Y - RMSE model for y
+				#	IMAGE_QUALITY_OLI - Image quality value
+				#	ESPA_VERSION - 
+				#	WRS_ROW - 
+				# 	WRS_PATH - 
+				#	system:assetsize - size of image
+				#	LANDSAT_ID - Complete ID
+				#	SENSING_TIME - date and time of image
+				#	SR_APP_VERSION - Surface reflectance model
+				Selection = ['LANDSAT_ID','CLOUD_COVER','SENSING_TIME','SR_APP_VERSION']
+				# List for the properties to be oreded in
+				ImageProperties = []
+				# List to store the selected items before ordering
+				Temp = []
+				for aItem in ImagePropertiesRaw:
+					aItem = aItem.replace(']', '')
+					aItem = aItem.replace('[', '')
+					aItem = aItem.replace("u'", '')
+					aItem = aItem.replace("'", '')
+					aItem = aItem.replace(" ", '')
+					aItem = aItem.split(',')
+					for selected in Selection:
+						if selected==aItem[0]:
+							Temp.append(aItem)
+				# Order the selection by the order in the Selection input list
+				for aItem in Selection:
+					for selected in Temp:
+						if selected[0]==aItem:
+							ImageProperties.append(selected)
 
-			# Plot the raster image on ax1
-			ax1.set_title(('NDVI Segment %s' % SegCount), fontsize='14')
-			out_image_c = np.rollaxis(ndvi[0], 0, 1)
-			out_image_c = ax1.imshow(out_image_c, cmap='plasma', vmin=-1.0, vmax=1.0)
+				# FULL Image properties statements: *****************
+				Sat = ImageProperties[0][0]+':'+' '+ImageProperties[0][-1]
+				Cloud = ImageProperties[1][0]+':'+' '+ImageProperties[1][-1]+'%'
+				Time = ImageProperties[2][0]+':'+' '+ImageProperties[2][-1]
+				SRver = ImageProperties[3][0]+':'+' '+ImageProperties[3][-1]
+				Finput = 'Base Image Properties:\n'+Sat+'\n'+Cloud+'\n'+Time+'\n'+SRver
 
-			# Modify color bar to fit size of graph
-			aspect = 20
-			pad_fraction = 0.5
-			divider = make_axes_locatable(ax1)
-			width = axes_size.AxesY(ax1, aspect=1./aspect)
-			pad = axes_size.Fraction(pad_fraction, width)
-			cax = divider.append_axes("right", size=width, pad=pad)
+				# Pull data for the clipped image interference coverage
+				# The image meta file is written for each cloud coverage section
+				# and contains the image name and estimated interference. At this piont,
+				# the interference will have been clipped.
+				# The data format for the initial input for the meta file is below:
+				# InsertItem = SatCode+'^'+TotalInt+'^'+str(TotalArea)+'^'+str(WaterArea)+'^'+str(LandArea)+'*'
+				
+				ImagePropertiesRaw = []
+				ImageFile = 'Image_Meta.txt'
+				CloudGEN = 'ParsedLakeData/Segment%s/Seg%sCLOUD/' % (SegCount, SegCount)
+				with open(CloudGEN+ImageFile) as Doc:
+					for Item in Doc:
+						ImagePropertiesRaw.append(Item)
+				Doc.close()
 
-			# Plot the colorbar and set ticklabels
-			plt.colorbar(out_image_c, cax=cax)
-			# Insert sat, path/row, and date information
-			Input = SatCodes[Index] + '\n' + PR + '\n' + Dates[Index]
-			plt.text(0,1.025, Input, fontsize='7')
+				# Clean up the data, split by the asterisk *
+				SplitData = ImagePropertiesRaw[0].split('*')
+				# Keep all the data but the first and final blank spot left over from split
+				SplitData = SplitData[0:-1]
+				# Split each element in each sub list to write list of list
+				ImageProperties = []
+				for aItem in SplitData:
+					aItem = aItem.split('^')
+					ImageProperties.append(aItem)
+				# New format: [Sat_PR_Date_Seg, Total Int, Total area, Water Area, Land Area]
+				for aList in ImageProperties:
+					# Split the data by _ to split the sat code and check the date
+					Temp = aList[0].split('_')
+					# TD is the temporary date, if it matches the one the loop
+					# is on, it will select the clip meta data for this set
+					TD = Temp[-1]
+					if TD==Dates[Index]:
+						# Identify it as an item
+						SelectedData = aList
 
-			# Plot the image information in ax2
-			textstr = Finput+'\n'+'\n'+Cinput
-			props = dict(boxstyle='round', facecolor='wheat')
-			# Hide the empty graph shhh...
-			ax2.spines['bottom'].set_color('white')
-			ax2.spines['top'].set_color('white') 
-			ax2.spines['right'].set_color('white')
-			ax2.spines['left'].set_color('white')
-			ax2.tick_params(axis='x', colors='white')
-			ax2.tick_params(axis='y', colors='white')
-			# Plot the text
-			ax2.text(0, 1, textstr, fontsize=10,
-				verticalalignment='top', bbox=props)
+				# Calculate area left after clip, we only kept water and land
+				TotalArea = int(SelectedData[-1])+int(SelectedData[-2])
 
-			# Plot the histogram
-			ax3.hist(ndvi[0], bins=BinSelect)
-			ax3.set_title('NDVI Value Histogram', fontsize=9)
-			ax3.set_xlabel('NDVI Value')
-			ax3.set_ylabel('Frequency')
-			# textstr = 'Max NDVI Value: %f\nMin NDVI Value: %f' % (MaxVal, MinVal)
-			# ax3.text(0.01,0.98, textstr, fontsize=6, verticalalignment='top', transform=ax3.transAxes)
+				# CLIP NDVI Image properties statements: *****************
+				# Build our second section of the text input for ax2
+				SEG_INT = 'CLIP_DATA_REMOVED: %s%%' % SelectedData[1]
+				W_Area = 'FMASK_WATER_EST: %s^2m' % SelectedData[3]
+				C_Area = 'FMASK_CLEAR/LAND_EST: %s^2m' % SelectedData[4]
+				InitialArea = 'INITIAL_DATA_AREA: %s^2m' % SelectedData[2]
+				RemainA = 'REMAINING_DATA_AREA: %i^2m' % TotalArea
 
-			plt.tight_layout(pad=4, w_pad=4, h_pad=4)
+				Cinput = 'NDVI Image Properties:\n'+SEG_INT+'\n'+W_Area+'\n'+C_Area+'\n'+InitialArea+'\n'+RemainA
 
-			plt.savefig((NDVIPNG+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'NDVI_Fmasked.png'), dpi=None, 
-			    facecolor='w', edgecolor='b', orientation='portrait', papertype=None, 
-			    format=None, transparent=False, bbox_inches=None, pad_inches=0.1, 
-			    frameon=None)
+				# Plot the data over a subplot2grid setup
+				gridsize = (5,2)
+				fig = plt.figure(figsize=(12,9))
+				ax1 = plt.subplot2grid(gridsize, (0, 0), colspan= 2, rowspan= 3)
+				ax2 = plt.subplot2grid(gridsize, (3, 0), colspan = 1, rowspan=2)
+				ax3 = plt.subplot2grid(gridsize, (3, 1), colspan = 1, rowspan = 2)
 
-			Index  = Index+1
-			# plt.show()
-			plt.close()
-		# sys.exit()
+				# Plot the raster image on ax1
+				ax1.set_title(('NDVI Segment %s' % SegCount), fontsize='14')
+				out_image_c = np.rollaxis(ndvi[0], 0, 1)
+				out_image_c = ax1.imshow(out_image_c, cmap='plasma', vmin=-1.0, vmax=1.0)
+
+				# Modify color bar to fit size of graph
+				aspect = 20
+				pad_fraction = 0.5
+				divider = make_axes_locatable(ax1)
+				width = axes_size.AxesY(ax1, aspect=1./aspect)
+				pad = axes_size.Fraction(pad_fraction, width)
+				cax = divider.append_axes("right", size=width, pad=pad)
+
+				# Plot the colorbar and set ticklabels
+				plt.colorbar(out_image_c, cax=cax)
+				# Insert sat, path/row, and date information
+				Input = SatCodes[Index] + '\n' + PR + '\n' + Dates[Index]
+				plt.text(0,1.025, Input, fontsize='7')
+
+				# Plot the image information in ax2
+				textstr = Finput+'\n'+'\n'+Cinput
+				props = dict(boxstyle='round', facecolor='wheat')
+				# Hide the empty graph shhh...
+				ax2.spines['bottom'].set_color('white')
+				ax2.spines['top'].set_color('white') 
+				ax2.spines['right'].set_color('white')
+				ax2.spines['left'].set_color('white')
+				ax2.tick_params(axis='x', colors='white')
+				ax2.tick_params(axis='y', colors='white')
+				# Plot the text
+				ax2.text(0, 1, textstr, fontsize=10,
+					verticalalignment='top', bbox=props)
+
+				# Plot the histogram
+				ax3.hist(ndvi[0], bins=BinSelect)
+				ax3.set_title('NDVI Value Histogram', fontsize=9)
+				ax3.set_xlabel('NDVI Value')
+				ax3.set_ylabel('Frequency')
+				# textstr = 'Max NDVI Value: %f\nMin NDVI Value: %f' % (MaxVal, MinVal)
+				# ax3.text(0.01,0.98, textstr, fontsize=6, verticalalignment='top', transform=ax3.transAxes)
+
+				plt.tight_layout(pad=4, w_pad=4, h_pad=4)
+
+				plt.savefig((NDVIPNG+str(SatCodes[Index])+'_'+str(PRCodes[Index])+'_'+str(Dates[Index])+'_'+SegCount+'NDVI_Fmasked.png'), dpi=None, 
+				    facecolor='w', edgecolor='b', orientation='portrait', papertype=None, 
+				    format=None, transparent=False, bbox_inches=None, pad_inches=0.1, 
+				    frameon=None)
+
+				Index  = Index+1
+				# plt.show()
+				plt.close()
+	except Exception as e:
+		print e
+		print '\n'
+		print 'Continue....'
+		ErrorLog.append([SegCount, e])
+
+print ErrorLog
+
+# Write file to explain errors
+with open('Analysis_Files/NDVI_Error.txt', 'w') as Doc:
+	for Exc in ErrorLog:
+		Doc.write(Exc)
+
 	#						Calculate Segment NDVI END
 
 
