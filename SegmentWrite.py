@@ -31,10 +31,16 @@ SF_Dir = 'Shapefile/'
 
 
 
+# IDs = []
+# with fiona.open(SF_Dir+'LakeParsed.shp') as File:
+# 	for feature in File:
+# 		IDs.append(feature['properties']['Id'])
+
+# Switch to full River
 IDs = []
-with fiona.open(SF_Dir+'LakeParsed.shp') as File:
+with fiona.open(SF_Dir+'RiverFull.shp') as File:
 	for feature in File:
-		IDs.append(feature['id'])
+		IDs.append(feature['properties']['Id'])
 
 # For DEM based analysis
 # IDs = []
@@ -81,7 +87,9 @@ if aItem=='A':
 # Full Run
 
 # Will write individual shapefiles for each segment
-with fiona.open(SF_Dir+'LakeParsed.shp') as File:
+# with fiona.open(SF_Dir+'LakeParsed.shp') as File:
+with fiona.open(SF_Dir+'RiverFull.shp') as File:
+
 	# with fiona.open(SF_Dir+'ParsedLake.shp') as File:
 		# schema = File.schema
 	meta = File.meta
@@ -89,7 +97,7 @@ with fiona.open(SF_Dir+'LakeParsed.shp') as File:
 	# sys.exit()
 	for feature in File:
 		# ID = feature['properties']['NAME']
-		ID = feature['id']
+		ID = feature['properties']['Id']
 		for aItem in ID_Selection:
 			aItem = int(aItem)
 			if aItem==int(ID):
@@ -107,51 +115,53 @@ File.close()
 # Write file to specify the specific parameters for this analysis
 with open('Analysis_Files/Analysis_Meta.txt', 'w') as Doc:
 	for ID in ID_Selection:
+		# 5/3/2020 Desktop Mod on ID, changed to have correct values.
+		# Required the addition of str() around ID
 		Doc.write('ID:')
 		if ID != ID_Selection[-1]:
-			Doc.write(ID+',')
+			Doc.write(str(ID)+',')
 		if ID == ID_Selection[-1]:
-			Doc.write(ID)
+			Doc.write(str(ID))
 	Doc.write('-')
 
-##################################### Partial Run
+##################################### Partial Run for DEM Based
 # Use if all data is downloaded, choose first 5 records/datasets
 # IDs = IDs[0:5]
 # ID_Selection = IDs
 
 
-# Will write individual shapefiles for each segment
-with fiona.open(SF_Dir+'DEM_Grid_Cut.shp') as File:
-	# with fiona.open(SF_Dir+'ParsedLake.shp') as File:
-		# schema = File.schema
-	meta = File.meta
-	# print meta
-	# sys.exit()
-	for feature in File:
-		ID = feature['properties']['NAME']
-		for aItem in ID_Selection:
-			aItem = int(aItem)
-			if aItem==int(ID):
-				# Write folders for all the data
-				dir = 'ParsedLakeData/Segment'+str(ID)
-				if not os.path.exists(dir):
-					os.makedirs(dir)
-				TempDir = 'ParsedLakeData/Segment'+str(ID)+'/'
-				# Write the shapefile
-				# with fiona.open(TempDir+str(Number)+'SegShp', 'w', crs=from_epsg(26914), driver='ESRI Shapefile', schema=schema) as output:
-				with fiona.open(TempDir+'Seg'+str(ID)+'Shp', 'w', **meta) as output:
-						output.write(feature)
-File.close()
+# # Will write individual shapefiles for each segment
+# with fiona.open(SF_Dir+'DEM_Grid_Cut.shp') as File:
+# 	# with fiona.open(SF_Dir+'ParsedLake.shp') as File:
+# 		# schema = File.schema
+# 	meta = File.meta
+# 	# print meta
+# 	# sys.exit()
+# 	for feature in File:
+# 		ID = feature['properties']['NAME']
+# 		for aItem in ID_Selection:
+# 			aItem = int(aItem)
+# 			if aItem==int(ID):
+# 				# Write folders for all the data
+# 				dir = 'ParsedLakeData/Segment'+str(ID)
+# 				if not os.path.exists(dir):
+# 					os.makedirs(dir)
+# 				TempDir = 'ParsedLakeData/Segment'+str(ID)+'/'
+# 				# Write the shapefile
+# 				# with fiona.open(TempDir+str(Number)+'SegShp', 'w', crs=from_epsg(26914), driver='ESRI Shapefile', schema=schema) as output:
+# 				with fiona.open(TempDir+'Seg'+str(ID)+'Shp', 'w', **meta) as output:
+# 						output.write(feature)
+# File.close()
 
-# Write file to specify the specific parameters for this analysis
-with open('Analysis_Files/Analysis_Meta.txt', 'w') as Doc:
-	for ID in ID_Selection:
-		Doc.write('ID:')
-		if ID != ID_Selection[-1]:
-			Doc.write(ID+',')
-		if ID == ID_Selection[-1]:
-			Doc.write(ID)
-	Doc.write('-')
+# # Write file to specify the specific parameters for this analysis
+# with open('Analysis_Files/Analysis_Meta.txt', 'w') as Doc:
+# 	for ID in ID_Selection:
+# 		Doc.write('ID:')
+# 		if ID != ID_Selection[-1]:
+# 			Doc.write(ID+',')
+# 		if ID == ID_Selection[-1]:
+# 			Doc.write(ID)
+# 	Doc.write('-')
 
 
 

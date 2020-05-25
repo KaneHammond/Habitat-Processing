@@ -109,8 +109,18 @@ for aFile in Files:
 # Rename the columns to remove spaces
 DF_M = DF_M.rename(columns = {'X Coord': 'X','Y Coord': 'Y','Z Coord': 'Z'})
 
+
 # points from xy: Longitude, Latitude
-GDF_M = gpd.GeoDataFrame(DF_M, geometry = gpd.points_from_xy(DF_M.X, DF_M.Y))
+try:
+	GDF_M = gpd.GeoDataFrame(DF_M, geometry = gpd.points_from_xy(DF_M.X, DF_M.Y))
+except:
+	print 'GPD failure... Alternative Solution'
+	# Use with fiona driver error here, but works in place of gpd if fails
+	geometry = [Point(xy) for xy in zip(DF_M.X, DF_M.Y)]
+	DF_M = DF_M.drop(['X', 'Y'], axis=1)
+	GDF_M = GeoDataFrame(DF_M, geometry = geometry)	
+	# https://gis.stackexchange.com/questions/174159/convert-a-pandas-dataframe-to-a-geodataframe
+
 
 
 # Write it to standard WGS 84, this is what the data is in, it will
